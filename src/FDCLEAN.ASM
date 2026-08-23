@@ -1,7 +1,7 @@
 ;==============================================================================
 ; FDCLEAN.ASM -- CP/M floppy head cleaning utility
 ; Altair FDC+ Drive Type 8 / iCOM 3712-compatible backend
-; Version 0.2, 2026-08-23
+; Version 0.3, 2026-08-23
 ;
 ; Modelled on Greaseweazle "gw clean": move the head in a zig-zag pattern and
 ; linger briefly at each endpoint while a cleaning disk is installed.
@@ -21,6 +21,16 @@
 ;       FDCLEAN C:
 ;       FDCLEAN D:
 ;       FDCLEAN C: 5       ; optional pass count 1..9, default 3
+;       FDCLEAN 0 3 2      ; 3 passes, speed divisor 2 (~half speed)
+;
+; Speed divisor controls the dwell between seek commands:
+;       1 = normal (~100 ms, default)
+;       2 = half speed (~200 ms)
+;       3 = third speed (~300 ms)
+;       4 = quarter speed (~400 ms)
+;
+; This does not change the FDC+'s internal step-pulse rate. It gives slower
+; drive mechanics more settling time before the next seek command.
 ;
 ; Greaseweazle algorithm for 77 cylinders:
 ;   step = max(cylinders / 8, 2) = 9
@@ -80,11 +90,19 @@ SHOWUNIT:
         CALL    PSTR
         LD      A,(PASSES)
         CALL    PDEC
+        LD      DE,SPEEDMSG
+        CALL    PSTR
+        LD      A,(SPEEDDIV)
+        CALL    PDEC
         CALL    CRLF
 
         CALL    INITDRV
         OR      A
         JP      NZ,HWFAIL
+
+        ; Give the selected drive the same settling interval after the initial
+        ; restore that it receives after every subsequent seek.
+        CALL    LINGER
 
         LD      A,1
         LD      (PASSNO),A
@@ -186,12 +204,16 @@ EXIT:
 
 ;------------------------------------------------------------------------------
 ; Parse CCP command tail at 0080H.
-; Accepted drive selectors: C:, D:, 0, 1. Optional pass count 1..9.
+; Accepted drive selectors: C:, D:, 0, 1.
+; Optional pass count:    1..9 (default 3).
+; Optional speed divisor: 1..4 (default 1; 2 is approximately half-speed).
 ; Returns A=0 success, A=1 syntax error.
 ;------------------------------------------------------------------------------
 PARSE:
         LD      A,3
         LD      (PASSES),A
+        LD      A,1
+        LD      (SPEEDDIV),A
 
         LD      A,(0080H)
         LD      B,A
@@ -242,6 +264,7 @@ PARNCOL:
         OR      A
         JR      Z,PAROK
 
+        ; First optional argument: pass count 1..9.
         LD      A,(HL)
         CP      '1'
         JR      C,PARBAD
@@ -249,6 +272,22 @@ PARNCOL:
         JR      NC,PARBAD
         SUB     '0'
         LD      (PASSES),A
+        INC     HL
+        DEC     B
+
+        CALL    SKIPSP
+        LD      A,B
+        OR      A
+        JR      Z,PAROK
+
+        ; Second optional argument: speed divisor 1..4.
+        LD      A,(HL)
+        CP      '1'
+        JR      C,PARBAD
+        CP      '5'             ; '5' is one past the accepted range
+        JR      NC,PARBAD
+        SUB     '0'
+        LD      (SPEEDDIV),A
         INC     HL
         DEC     B
 
@@ -377,11 +416,16 @@ OUTCMD:
         RET
 
 ;------------------------------------------------------------------------------
-; Approximately 100 ms on a 4 MHz Z80.
+; Base dwell is approximately 100 ms on a 4 MHz Z80.
 ; Inner loop is about 25 clocks x 2000 x 8 ~= 400,000 clocks.
-; The exact dwell is not critical for a cleaning disk.
+; SPEEDDIV repeats that base dwell 1..4 times, giving approximately 100, 200,
+; 300, or 400 ms between seek commands. This is a mechanical settling delay;
+; it does not alter the FDC+'s own step-pulse timing.
 ;------------------------------------------------------------------------------
 LINGER:
+        LD      A,(SPEEDDIV)
+        LD      E,A
+DLSCALE:
         LD      D,8
 DL1:
         LD      BC,2000
@@ -392,6 +436,8 @@ DL2:
         JR      NZ,DL2
         DEC     D
         JR      NZ,DL1
+        DEC     E
+        JR      NZ,DLSCALE
         RET
 
 ;------------------------------------------------------------------------------
@@ -479,14 +525,16 @@ PATTERN:
 ;------------------------------------------------------------------------------
 BANNER:
         DB      13,10
-        DB      'FDCLEAN 0.2 - Altair FDC+ 3712 head cleaner',13,10
-        DB      'Greaseweazle-style zig-zag, 77 cylinders, ~100 ms linger',13,10
+        DB      'FDCLEAN 0.3 - Altair FDC+ 3712 head cleaner',13,10
+        DB      'Greaseweazle-style zig-zag, 77 cylinders, ~100 ms base linger',13,10
         DB      'NO DISK READS OR WRITES ARE PERFORMED.',13,10,'$'
 
 READYMSG:
         DB      'Cleaning FDC+ physical unit ','$'
 PASSMSG:
         DB      ', passes ','$'
+SPEEDMSG:
+        DB      ', speed divisor ','$'
 PASSHDR:
         DB      'Pass ','$'
 COLONSP:
@@ -500,14 +548,16 @@ SEEKMSG:
 HWMSG:
         DB      'FDC initialization/restore failed. Status=','$'
 USAGE:
-        DB      13,10,'Usage: FDCLEAN 0  [passes]',13,10
-        DB      '       FDCLEAN 1  [passes]',13,10
-        DB      '       FDCLEAN C: [passes]',13,10
-        DB      '       FDCLEAN D: [passes]',13,10
-        DB      'passes = 1..9 (default 3)',13,10,'$'
+        DB      13,10,'Usage: FDCLEAN 0  [passes] [speeddiv]',13,10
+        DB      '       FDCLEAN 1  [passes] [speeddiv]',13,10
+        DB      '       FDCLEAN C: [passes] [speeddiv]',13,10
+        DB      '       FDCLEAN D: [passes] [speeddiv]',13,10
+        DB      'passes   = 1..9 (default 3)',13,10
+        DB      'speeddiv = 1..4 (1 normal, 2 half-speed)',13,10,'$'
 
 UNIT:       DB  0
 PASSES:     DB  3
+SPEEDDIV:   DB  1
 PASSNO:     DB  0
 CURTRK:     DB  0
 SEEKRC:     DB  0
