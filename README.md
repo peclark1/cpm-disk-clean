@@ -8,7 +8,9 @@ The first backend targets the **Altair FDC+ Drive Type 8 / iCOM 3712-compatible 
 
 ## Safety
 
-The cleaner issues only controller reset/configure/select/restore/set-track/seek/clear-error commands. It contains **no sector READ or WRITE commands** and does not transfer disk data.
+The cleaner issues only configure/select/restore/set-track/seek/clear-error commands. It contains **no sector READ or WRITE commands** and does not transfer disk data.
+
+It also deliberately does **not** reset the FDC+ controller. Since the utility runs underneath CP/M, resetting the controller directly could invalidate state maintained by the CP/M BIOS for another floppy drive. Instead, FDCLEAN restores only the selected physical drive to track 0 and performs explicit seeks from there.
 
 Use a proper wet or dry head-cleaning disk according to its instructions.
 
@@ -39,7 +41,7 @@ For 77 cylinders, the Greaseweazle-style step is `77 / 8 = 9`, producing this se
 8 0 17 9 26 18 35 27 44 36 53 45 62 54 71 63 76 72
 ```
 
-The utility restores the drive to track 0 when the run completes or after a seek error.
+The utility restores the selected drive to track 0 when the run completes or after a seek error.
 
 ## Build on Ubuntu
 
