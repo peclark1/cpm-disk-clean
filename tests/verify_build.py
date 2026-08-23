@@ -18,7 +18,7 @@ if len(data) < 256:
 if data[0] != 0x31:
     raise SystemExit(f"unexpected first opcode: {data[0]:02X}, expected 31 (LD SP,nn)")
 
-banner = b"FDCLEAN 0.3 - Altair FDC+ 3712 head cleaner"
+banner = b"FDCLEAN 0.3.1 - Altair FDC+ 3712 head cleaner"
 if banner not in data:
     raise SystemExit("compiled banner string not found in FDCLEAN.COM")
 
@@ -36,5 +36,13 @@ required = (
 for name in required:
     if name not in text:
         raise SystemExit(f"required cleaner feature missing from source: {name}")
+
+# Regression guard: the 0.3 experiment inserted a LINGER immediately after
+# INITDRV/RESTORE and real FDC+ hardware then reported seek error 08h on both
+# physical units. Speed-controlled linger must occur only after a successful
+# cleaning seek.
+init_to_pass = text.split("CALL    INITDRV", 1)[1].split("PASSLP:", 1)[0]
+if "CALL    LINGER" in init_to_pass:
+    raise SystemExit("regression: linger present between initial restore and first seek")
 
 print(f"FDCLEAN.COM sanity checks passed ({len(data)} bytes)")

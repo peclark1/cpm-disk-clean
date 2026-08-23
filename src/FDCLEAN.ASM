@@ -1,7 +1,7 @@
 ;==============================================================================
 ; FDCLEAN.ASM -- CP/M floppy head cleaning utility
 ; Altair FDC+ Drive Type 8 / iCOM 3712-compatible backend
-; Version 0.3, 2026-08-23
+; Version 0.3.1, 2026-08-23
 ;
 ; Modelled on Greaseweazle "gw clean": move the head in a zig-zag pattern and
 ; linger briefly at each endpoint while a cleaning disk is installed.
@@ -100,10 +100,9 @@ SHOWUNIT:
         OR      A
         JP      NZ,HWFAIL
 
-        ; Give the selected drive the same settling interval after the initial
-        ; restore that it receives after every subsequent seek.
-        CALL    LINGER
-
+        ; Important: begin the first seek immediately after RESTORE, matching
+        ; the proven 0.2 command sequence. Speed-controlled linger applies
+        ; only after successful cleaning seeks.
         LD      A,1
         LD      (PASSNO),A
 
@@ -525,7 +524,7 @@ PATTERN:
 ;------------------------------------------------------------------------------
 BANNER:
         DB      13,10
-        DB      'FDCLEAN 0.3 - Altair FDC+ 3712 head cleaner',13,10
+        DB      'FDCLEAN 0.3.1 - Altair FDC+ 3712 head cleaner',13,10
         DB      'Greaseweazle-style zig-zag, 77 cylinders, ~100 ms base linger',13,10
         DB      'NO DISK READS OR WRITES ARE PERFORMED.',13,10,'$'
 
