@@ -1,7 +1,7 @@
 ;==============================================================================
 ; FDCLEAN.ASM -- CP/M floppy head cleaning utility
 ; Altair FDC+ Drive Type 8 / iCOM 3712-compatible backend
-; Version 0.1, 2026-08-23
+; Version 0.2, 2026-08-23
 ;
 ; Modelled on Greaseweazle "gw clean": move the head in a zig-zag pattern and
 ; linger briefly at each endpoint while a cleaning disk is installed.
@@ -10,6 +10,7 @@
 ;   * NO sector reads are performed.
 ;   * NO sector writes are performed.
 ;   * The program talks directly to FDC+ ports 08H/09H.
+;   * It deliberately does NOT reset the controller behind CP/M's BIOS.
 ;   * Pattern is for 77-cylinder 8-inch drives (tracks 0..76).
 ;   * Physical unit 0/1 can always be specified directly.
 ;   * C:/D: are aliases for unit 0/1 in the current IMSAI CP/M 3 system.
@@ -41,7 +42,6 @@ C_REST  EQU     0DH
 C_SETTR EQU     11H
 C_LDCFG EQU     15H
 C_DRVSC EQU     21H
-C_RESET EQU     81H
 
 ; Controller status bits used for seek/restore failure detection.
 S_BUSY  EQU     01H
@@ -277,12 +277,12 @@ SKIPSP:
         JR      SKIPSP
 
 ;------------------------------------------------------------------------------
-; Initialize controller and restore selected drive to track zero.
+; Prepare the selected drive without resetting the FDC+. CP/M's BIOS owns the
+; controller globally, so resetting it here could invalidate the BIOS's state
+; for the other physical drive. Loading config/select and restoring only this
+; drive gives us a known track-zero reference while keeping the controller up.
 ;------------------------------------------------------------------------------
 INITDRV:
-        LD      A,C_RESET
-        CALL    OUTCMD
-        CALL    LINGER
         CALL    SETCFG
         CALL    RESTORE
         RET
@@ -479,7 +479,7 @@ PATTERN:
 ;------------------------------------------------------------------------------
 BANNER:
         DB      13,10
-        DB      'FDCLEAN 0.1 - Altair FDC+ 3712 head cleaner',13,10
+        DB      'FDCLEAN 0.2 - Altair FDC+ 3712 head cleaner',13,10
         DB      'Greaseweazle-style zig-zag, 77 cylinders, ~100 ms linger',13,10
         DB      'NO DISK READS OR WRITES ARE PERFORMED.',13,10,'$'
 
