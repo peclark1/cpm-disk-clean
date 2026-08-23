@@ -1,0 +1,34 @@
+name: Build FDCLEAN.COM
+
+on:
+  push:
+    branches: [ main, "feature/**" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pasmo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pasmo
+
+      - name: Build and test
+        run: make test
+
+      - name: Show checksum
+        run: sha256sum dist/FDCLEAN.COM
+
+      - name: Publish CP/M utility
+        uses: actions/upload-artifact@v4
+        with:
+          name: FDCLEAN-COM
+          path: |
+            dist/FDCLEAN.COM
+            dist/FDCLEAN.SYM
