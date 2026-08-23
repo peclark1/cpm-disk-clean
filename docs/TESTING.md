@@ -8,7 +8,7 @@ Run:
 make test
 ```
 
-This assembles `src/FDCLEAN.ASM` with Pasmo, verifies that a non-empty CP/M COM file was produced, checks the expected startup opcode and banner, and rejects source that introduces sector data-transfer command names.
+This assembles `src/FDCLEAN.ASM` with Pasmo, verifies that a non-empty CP/M COM file was produced, checks the expected startup opcode and banner, rejects source that introduces sector data-transfer commands, and verifies that the utility does not reset the FDC+ controller behind CP/M's BIOS.
 
 ## First hardware test
 
@@ -20,14 +20,14 @@ FDCLEAN 0 1
 
 Expected behavior:
 
-1. The FDC+ resets and restores unit 0 to track 0.
+1. FDCLEAN selects unit 0 and restores that drive to track 0 without resetting the controller.
 2. One cleaning pass prints and seeks this sequence:
 
 ```text
 8 0 17 9 26 18 35 27 44 36 53 45 62 54 71 63 76 72
 ```
 
-3. The drive returns to track 0.
+3. The selected drive returns to track 0.
 4. The program returns to CP/M.
 
 After the one-pass test succeeds, the normal default is:
