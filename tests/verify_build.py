@@ -14,35 +14,40 @@ text = src.read_text(encoding="utf-8").upper()
 if len(data) < 256:
     raise SystemExit(f"FDCLEAN.COM is unexpectedly small: {len(data)} bytes")
 
-# Program starts at CP/M transient-program address 0100h with LD SP,nn.
 if data[0] != 0x31:
     raise SystemExit(f"unexpected first opcode: {data[0]:02X}, expected 31 (LD SP,nn)")
 
-banner = b"FDCLEAN 0.3.1 - Altair FDC+ 3712 head cleaner"
+banner = b"FDCLEAN 0.4D - FDC+3712 reset/handoff diagnostic"
 if banner not in data:
-    raise SystemExit("compiled banner string not found in FDCLEAN.COM")
+    raise SystemExit("compiled diagnostic banner string not found in FDCLEAN.COM")
 
-# The cleaner must never grow sector data-transfer commands, and it must not
-# reset the controller behind CP/M's BIOS.
+# Cleaning media must never be read or written. Controller RESET is explicitly
+# allowed in this diagnostic because we are testing deterministic ownership
+# handoff between FDCLEAN and the CP/M 3 BIOS.
 for forbidden in (
-    "C_READ", "C_WRITE", "C_RDBUF", "C_WRTBUF", "C_RDCRC", "C_RESET"
+    "C_READ", "C_WRITE", "C_RDBUF", "C_WRTBUF", "C_RDCRC"
 ):
     if forbidden in text:
         raise SystemExit(f"forbidden controller command present in source: {forbidden}")
 
 required = (
-    "C_SEEK", "C_REST", "C_SETTR", "C_DRVSC", "C_LDCFG", "SPEEDDIV"
+    "C_SEEK", "C_REST", "C_SETTR", "C_DRVSC", "C_LDCFG", "C_RESET",
+    "SPEEDDIV", "RESETCTL:", "HANDOFF:", "SAVEUNIT", "HANDERR"
 )
 for name in required:
     if name not in text:
-        raise SystemExit(f"required cleaner feature missing from source: {name}")
+        raise SystemExit(f"required diagnostic feature missing from source: {name}")
 
-# Regression guard: the 0.3 experiment inserted a LINGER immediately after
-# INITDRV/RESTORE and real FDC+ hardware then reported seek error 08h on both
-# physical units. Speed-controlled linger must occur only after a successful
-# cleaning seek.
-init_to_pass = text.split("CALL    INITDRV", 1)[1].split("PASSLP:", 1)[0]
-if "CALL    LINGER" in init_to_pass:
-    raise SystemExit("regression: linger present between initial restore and first seek")
+init = text.split("INITDRV:", 1)[1].split("RESETCTL:", 1)[0]
+if "CALL    RESETCTL" not in init or "CALL    RESTORE" not in init:
+    raise SystemExit("INITDRV must reset the controller and restore the selected unit")
+if init.index("CALL    RESETCTL") > init.index("CALL    RESTORE"):
+    raise SystemExit("INITDRV restore occurs before controller reset")
 
-print(f"FDCLEAN.COM sanity checks passed ({len(data)} bytes)")
+handoff = text.split("HANDOFF:", 1)[1].split("DOCMD:", 1)[0]
+if "CALL    RESETCTL" not in handoff:
+    raise SystemExit("HANDOFF must reset the controller")
+if handoff.count("CALL    RESTORE") < 2:
+    raise SystemExit("HANDOFF must restore both physical units")
+
+print(f"FDCLEAN.COM diagnostic sanity checks passed ({len(data)} bytes)")
