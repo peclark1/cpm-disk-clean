@@ -18,17 +18,19 @@ if len(data) < 256:
 if data[0] != 0x31:
     raise SystemExit(f"unexpected first opcode: {data[0]:02X}, expected 31 (LD SP,nn)")
 
-banner = b"FDCLEAN 0.1 - Altair FDC+ 3712 head cleaner"
+banner = b"FDCLEAN 0.2 - Altair FDC+ 3712 head cleaner"
 if banner not in data:
     raise SystemExit("compiled banner string not found in FDCLEAN.COM")
 
-# The cleaner must never grow data-transfer commands. These names and command
-# values are intentionally absent from the source's controller command table.
-for forbidden in ("C_READ", "C_WRITE", "C_RDBUF", "C_WRTBUF", "C_RDCRC"):
+# The cleaner must never grow sector data-transfer commands, and it must not
+# reset the controller behind CP/M's BIOS.
+for forbidden in (
+    "C_READ", "C_WRITE", "C_RDBUF", "C_WRTBUF", "C_RDCRC", "C_RESET"
+):
     if forbidden in text:
-        raise SystemExit(f"forbidden disk data command present in source: {forbidden}")
+        raise SystemExit(f"forbidden controller command present in source: {forbidden}")
 
-required = ("C_SEEK", "C_REST", "C_SETTR", "C_DRVSC", "C_RESET")
+required = ("C_SEEK", "C_REST", "C_SETTR", "C_DRVSC", "C_LDCFG")
 for name in required:
     if name not in text:
         raise SystemExit(f"required motion command missing from source: {name}")
