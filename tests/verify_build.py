@@ -18,7 +18,7 @@ if len(data) < 256:
 if data[0] != 0x31:
     raise SystemExit(f"unexpected first opcode: {data[0]:02X}, expected 31 (LD SP,nn)")
 
-banner = b"FDCLEAN 0.2 - Altair FDC+ 3712 head cleaner"
+banner = b"FDCLEAN 0.3 - Altair FDC+ 3712 head cleaner"
 if banner not in data:
     raise SystemExit("compiled banner string not found in FDCLEAN.COM")
 
@@ -30,9 +30,11 @@ for forbidden in (
     if forbidden in text:
         raise SystemExit(f"forbidden controller command present in source: {forbidden}")
 
-required = ("C_SEEK", "C_REST", "C_SETTR", "C_DRVSC", "C_LDCFG")
+required = (
+    "C_SEEK", "C_REST", "C_SETTR", "C_DRVSC", "C_LDCFG", "SPEEDDIV"
+)
 for name in required:
     if name not in text:
-        raise SystemExit(f"required motion command missing from source: {name}")
+        raise SystemExit(f"required cleaner feature missing from source: {name}")
 
 print(f"FDCLEAN.COM sanity checks passed ({len(data)} bytes)")
