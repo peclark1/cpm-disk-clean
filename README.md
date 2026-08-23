@@ -31,9 +31,25 @@ FDCLEAN 1
 FDCLEAN C:
 FDCLEAN D:
 FDCLEAN C: 5
+FDCLEAN 0 3 2
 ```
 
-The optional pass count is `1..9`; the default is 3.
+The first optional argument is the pass count, `1..9`; the default is 3.
+
+The second optional argument is a **speed divisor**, `1..4`:
+
+- `1` = normal speed, about 100 ms linger between seeks (default)
+- `2` = about half speed, about 200 ms linger
+- `3` = about one-third speed, about 300 ms linger
+- `4` = about one-quarter speed, about 400 ms linger
+
+For example, this runs three passes at approximately half the current cleaning speed:
+
+```text
+FDCLEAN 0 3 2
+```
+
+The speed divisor does not change the FDC+'s internal step-pulse timing. It increases the settling time after each completed seek before the next seek command is issued, which is useful for drives whose head mechanism needs more time to settle.
 
 For 77 cylinders, the Greaseweazle-style step is `77 / 8 = 9`, producing this sequence per pass:
 
@@ -62,4 +78,4 @@ Pasmo's raw-binary mode can directly create a CP/M `.COM` file when the source b
 
 ## Project status
 
-The initial version is deliberately controller-specific so it can issue genuine seek commands without trying to read an unformatted cleaning disk. A future version can add additional controller backends while keeping the same user interface and cleaning pattern.
+Version 0.3 adds selectable slower cleaning speeds while retaining the original controller-specific, no-data-transfer design. A future version can add additional controller backends while keeping the same user interface and cleaning pattern.
