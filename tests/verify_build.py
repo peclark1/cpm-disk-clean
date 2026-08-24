@@ -17,13 +17,12 @@ if len(data) < 256:
 if data[0] != 0x31:
     raise SystemExit(f"unexpected first opcode: {data[0]:02X}, expected 31 (LD SP,nn)")
 
-banner = b"FDCLEAN 0.4D - FDC+3712 reset/handoff diagnostic"
+banner = b"FDCLEAN 0.4 - Altair FDC+ 3712 head cleaner"
 if banner not in data:
-    raise SystemExit("compiled diagnostic banner string not found in FDCLEAN.COM")
+    raise SystemExit("compiled FDCLEAN 0.4 banner string not found in FDCLEAN.COM")
 
-# Cleaning media must never be read or written. Controller RESET is explicitly
-# allowed in this diagnostic because we are testing deterministic ownership
-# handoff between FDCLEAN and the CP/M 3 BIOS.
+# Cleaning media must never be read or written. Controller RESET is required
+# for the hardware-validated ownership handoff between FDCLEAN and CP/M 3.
 for forbidden in (
     "C_READ", "C_WRITE", "C_RDBUF", "C_WRTBUF", "C_RDCRC"
 ):
@@ -36,7 +35,7 @@ required = (
 )
 for name in required:
     if name not in text:
-        raise SystemExit(f"required diagnostic feature missing from source: {name}")
+        raise SystemExit(f"required cleaner feature missing from source: {name}")
 
 init = text.split("INITDRV:", 1)[1].split("RESETCTL:", 1)[0]
 if "CALL    RESETCTL" not in init or "CALL    RESTORE" not in init:
@@ -50,4 +49,4 @@ if "CALL    RESETCTL" not in handoff:
 if handoff.count("CALL    RESTORE") < 2:
     raise SystemExit("HANDOFF must restore both physical units")
 
-print(f"FDCLEAN.COM diagnostic sanity checks passed ({len(data)} bytes)")
+print(f"FDCLEAN.COM sanity checks passed ({len(data)} bytes)")
