@@ -1,7 +1,7 @@
 ;==============================================================================
 ; FDCLEAN.ASM -- CP/M floppy head cleaning utility
 ; Altair FDC+ Drive Type 8 / iCOM 3712-compatible backend
-; Diagnostic version 0.4D, 2026-08-23
+; Version 0.4, 2026-08-24
 ;
 ; Modelled on Greaseweazle "gw clean": move the head in a zig-zag pattern and
 ; linger briefly at each endpoint while a cleaning disk is installed.
@@ -10,7 +10,7 @@
 ;   * NO sector reads are performed.
 ;   * NO sector writes are performed.
 ;   * The program talks directly to FDC+ ports 08H/09H.
-;   * This diagnostic build explicitly resets the 3712 emulation on entry.
+;   * The hardware-validated build resets the 3712 emulation on entry.
 ;   * Before returning to CP/M it resets again and restores BOTH physical units
 ;     to track 0, then leaves the interface in examine-status mode.
 ;   * Pattern is for 77-cylinder 8-inch drives (tracks 0..76).
@@ -304,9 +304,10 @@ SKIPSP:
         JR      SKIPSP
 
 ;------------------------------------------------------------------------------
-; Diagnostic initialization.
+; Controller initialization.
 ; The reference FDC+3712 firmware begins its controller initialization with
-; RESET. We now do the same before selecting/restoring the requested unit.
+; RESET. Physical IMSAI testing confirmed the same sequence is required here
+; before selecting/restoring the requested unit.
 ;------------------------------------------------------------------------------
 INITDRV:
         CALL    RESETCTL
@@ -554,7 +555,7 @@ PATTERN:
 
 BANNER:
         DB      13,10
-        DB      'FDCLEAN 0.4D - FDC+3712 reset/handoff diagnostic',13,10
+        DB      'FDCLEAN 0.4 - Altair FDC+ 3712 head cleaner',13,10
         DB      'NO DISK READS OR WRITES ARE PERFORMED.',13,10,'$'
 READYMSG:
         DB      'Cleaning FDC+ physical unit ','$'
